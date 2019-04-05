@@ -22,12 +22,13 @@ use crate::{
     remacs_sys::{
         concat as lisp_concat, globals, make_uninit_bool_vector, make_uninit_multibyte_string,
         make_uninit_string, make_uninit_vector, message1, redisplay_preserve_echo_area,
+        wrong_type_argument,
     },
     remacs_sys::{EmacsInt, Lisp_Type},
     remacs_sys::{Fdiscard_input, Fload, Fx_popup_dialog},
     remacs_sys::{
-        Qfuncall, Qlistp, Qnil, Qprovide, Qquote, Qrequire, Qsequencep, Qsubfeatures, Qt,
-        Qyes_or_no_p_history,
+        Qfuncall, Qintegerp, Qlistp, Qnil, Qprovide, Qquote, Qrequire, Qsequencep, Qsubfeatures,
+        Qt, Qyes_or_no_p_history,
     },
     symbols::LispSymbolRef,
     threads::c_specpdl_index,
@@ -511,6 +512,62 @@ pub fn nconc(args: &mut [LispObject]) -> LispObject {
     }
 
     val
+}
+
+// Check that ARRAY can have a valid subarray [FROM..TO),
+// given that its size is SIZE.
+// If FROM is nil, use 0; if TO is nil, use SIZE.
+// Count negative values backwards from the end.
+// Set *IFROM and *ITO to the two indexes used.
+#[no_mangle]
+pub extern "C" fn validate_subarray(
+    array: LispObject,
+    from: LispObject,
+    to: LispObject,
+    size: libc::ptrdiff_t,
+    ifrom: *mut libc::ptrdiff_t,
+    ito: *mut libc::ptrdiff_t,
+) {
+    let mut f: isize;
+    let mut t: isize;
+
+    println!("The value of 'from' is: {:?}", from);
+    println!("The value of 'to' is: {:?}", to);
+
+    if from.is_integer() {
+        f = from.as_fixnum_or_error() as isize;
+        if f < 0 {
+            f += size;
+        }
+    } else if from.is_nil() {
+        f = 0;
+    } else {
+        unsafe {
+            wrong_type_argument(Qintegerp, from);
+        }
+    }
+
+    if to.is_integer() {
+        t = to.as_fixnum_or_error() as isize;
+        if t < 0 {
+            t += size;
+        }
+    } else if to.is_nil() {
+        t = size;
+    } else {
+        unsafe {
+            wrong_type_argument(Qintegerp, to);
+        }
+    }
+
+    if !(0 <= f && f <= t && t <= size) {
+        args_out_of_range!(array, from, to);
+    }
+
+    unsafe {
+        *ifrom = f;
+        *ito = t;
+    }
 }
 
 include!(concat!(env!("OUT_DIR"), "/fns_exports.rs"));
