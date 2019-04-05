@@ -528,44 +528,40 @@ pub extern "C" fn validate_subarray(
     ifrom: *mut libc::ptrdiff_t,
     ito: *mut libc::ptrdiff_t,
 ) {
-    let mut f: EmacsInt;
-    let mut t: EmacsInt;
-    let size_int = size as EmacsInt;
-
-    if from.is_integer() {
-        f = from.as_fixnum_or_error();
-        if f < 0 {
-            f += size_int;
-        }
-    } else if from.is_nil() {
-        f = 0;
-    } else {
-        unsafe {
-            wrong_type_argument(Qintegerp, from);
-        }
+    if !from.is_nil() && !from.is_integer() {
+        unsafe { wrong_type_argument(Qintegerp, from) }
     }
 
-    if to.is_integer() {
-        t = to.as_fixnum_or_error();
-        if t < 0 {
-            t += size_int;
-        }
-    } else if to.is_nil() {
-        t = size_int;
-    } else {
-        unsafe {
-            wrong_type_argument(Qintegerp, to);
-        }
+    if !to.is_nil() && !to.is_integer() {
+        unsafe { wrong_type_argument(Qintegerp, to) }
     }
 
-    if !(0 <= f && f <= t && t <= size_int) {
-        args_out_of_range!(array, from, to);
-    }
+    let (f, t) = validate_subarray_rust(array, from.as_fixnum(), to.as_fixnum(), size as EmacsInt);
 
     unsafe {
         *ifrom = f as libc::ptrdiff_t;
         *ito = t as libc::ptrdiff_t;
     }
+}
+
+pub fn validate_subarray_rust(
+    array: LispObject,
+    from: Option<EmacsInt>,
+    to: Option<EmacsInt>,
+    size: EmacsInt,
+) -> (EmacsInt, EmacsInt) {
+    let f = from.map_or(0, |number| if number < 0 { number + size } else { number });
+
+    let t = to.map_or(
+        size,
+        |number| if number < 0 { number + size } else { number },
+    );
+
+    if !(0 <= f && f <= t && t <= size) {
+        args_out_of_range!(array, from, to);
+    }
+
+    (f, t)
 }
 
 include!(concat!(env!("OUT_DIR"), "/fns_exports.rs"));
