@@ -528,16 +528,14 @@ pub extern "C" fn validate_subarray(
     ifrom: *mut libc::ptrdiff_t,
     ito: *mut libc::ptrdiff_t,
 ) {
-    let mut f: isize;
-    let mut t: isize;
-
-    println!("The value of 'from' is: {:?}", from);
-    println!("The value of 'to' is: {:?}", to);
+    let mut f: EmacsInt;
+    let mut t: EmacsInt;
+    let size_int = size as EmacsInt;
 
     if from.is_integer() {
-        f = from.as_fixnum_or_error() as isize;
+        f = from.as_fixnum_or_error();
         if f < 0 {
-            f += size;
+            f += size_int;
         }
     } else if from.is_nil() {
         f = 0;
@@ -548,25 +546,25 @@ pub extern "C" fn validate_subarray(
     }
 
     if to.is_integer() {
-        t = to.as_fixnum_or_error() as isize;
+        t = to.as_fixnum_or_error();
         if t < 0 {
-            t += size;
+            t += size_int;
         }
     } else if to.is_nil() {
-        t = size;
+        t = size_int;
     } else {
         unsafe {
             wrong_type_argument(Qintegerp, to);
         }
     }
 
-    if !(0 <= f && f <= t && t <= size) {
+    if !(0 <= f && f <= t && t <= size_int) {
         args_out_of_range!(array, from, to);
     }
 
     unsafe {
-        *ifrom = f;
-        *ito = t;
+        *ifrom = f as libc::ptrdiff_t;
+        *ito = t as libc::ptrdiff_t;
     }
 }
 
